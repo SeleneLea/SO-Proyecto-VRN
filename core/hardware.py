@@ -4,6 +4,10 @@ import platform
 def optener_tipo_disco(unidad):
     return "SSD/HDD (Unidad de Disco)"
 
+def obtener_ram_disponible():
+    memoria = psutil.virtual_memory()
+    return round(memoria.available / (1024 ** 3), 2)
+
 def obtener_info_sistema():
     memoria = psutil.virtual_memory()
     

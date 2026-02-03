@@ -1,5 +1,6 @@
 import pandas as pd
 from collections import deque
+import copy
 
 def calcular_promedios(tiempos):
     total_espera = sum(t['espera'] for t in tiempos)
@@ -17,10 +18,10 @@ def calcular_tiempos_estandar(lista_procesos):
     
     for p in lista_procesos:
         inicio = max(tiempo_actual, p['t_llegada']) #evita tiempos negativos
-        
+        fin = inicio + p['t_rafaga']       
         t_espera = inicio - p['t_llegada']
-        t_respuesta = p['t_rafaga'] + tr_anterior
-        fin = inicio + p['t_rafaga']
+        t_respuesta = fin - p['t_llegada']
+        #t_respuesta = p['t_rafaga'] + tr_anterior
         
         resultados.append({
             'id': p['id'],
@@ -39,7 +40,7 @@ def algoritmo_fifo(proceso):
     return calcular_tiempos_estandar(procesos_ordenados)
 
 def algoritmo_sjf(proceso):
-    pendientes =proceso.copy()
+    pendientes = copy.deepcopy(proceso)
     procesos_ejecutados = []
     tiempo_actual = 0
     
@@ -53,11 +54,12 @@ def algoritmo_sjf(proceso):
             continue
         
         # elige el de menor rafaga
-        proceso_elegido = min(disponibles, key=lambda x: x['t_rafaga'])
+        proceso_elegido = min(disponibles, key=lambda x: (x['t_rafaga'], x['t_llegada']))
         pendientes.remove(proceso_elegido)
-        procesos_ejecutados.append(proceso_elegido)
-        
+        procesos_ejecutados.append(proceso_elegido) 
+
         tiempo_actual += proceso_elegido['t_rafaga']
+
     return calcular_tiempos_estandar(procesos_ejecutados)
 
 
@@ -110,6 +112,27 @@ def algoritmo_rr(proceso, q):
         'gantt': gantt,
         'tiempos': tiempos
     }
+
+
+def leer_txt(ruta_archivo):
+    procesos = []
+    try:
+        with open(ruta_archivo, 'r') as f:
+            for linea in f:
+                # separar por comas o espacios
+                partes = linea.strip().replace(',', ' ').split()
+                if len(partes) >= 3:
+                    procesos.append({
+                        'id': partes[0],
+                        't_llegada': int(partes[1]),
+                        't_rafaga': int(partes[2])
+                    })
+        return procesos
+    except Exception as e:
+        print(f"Error al leer el archivo: {e}")
+        return []
+
+
 
 
 
