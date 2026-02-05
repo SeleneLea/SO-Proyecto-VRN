@@ -1,8 +1,14 @@
 import customtkinter as ctk
+import tkinter as tk
 from core.hardware import obtener_info_sistema
 from core.hardware import obtener_ram_disponible
 from tkinter import filedialog, messagebox
 from core.procesos import algoritmo_fifo, algoritmo_sjf, algoritmo_rr, leer_txt
+from core.memoria import AdminMemoria
+# from core.memoria import obtener_tamano_proceso_real
+from core.archivos import ApartadoArchivos, obtener_unidades_extraibles, listar_archivos
+
+
 
 class App(ctk.CTk):
     def __init__(self):
@@ -25,6 +31,8 @@ class App(ctk.CTk):
         self.btn_procesos.grid(row=2, column=0, padx=20, pady=10)
         self.btn_archivos = ctk.CTkButton(self.sidebar_frame, text="Archivos (USB)", command=self.mostrar_archivos)
         self.btn_archivos.grid(row=3, column=0, padx=20, pady=10)
+        self.btn_memoria = ctk.CTkButton(self.sidebar_frame, text="Memoria RAM", command=self.mostrar_memoria)
+        self.btn_memoria.grid(row=4, column=0, padx=20, pady=10)
         
         # contenedor de vistas
         self.main_view = ctk.CTkFrame(self, corner_radius=10)
@@ -35,6 +43,15 @@ class App(ctk.CTk):
     def limpiar_pantalla(self): # antes de cambiar de seccion
         for widget in self.main_view.winfo_children():
             widget.destroy()
+    
+    
+    
+    #-------------------------------------------------------------------
+    #---------------                          ---------------------------    
+    # -------------- HARDWARE CARACTERISTICAS ---------------------------
+    #---------------                          ---------------------------    
+    #--------------------------------------------------------------------   
+    
     
     def mostrar_hardware(self):
         self.limpiar_pantalla()
@@ -58,35 +75,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(self.frame_hardware, text="Almacenamiento", font=ctk.CTkFont(size=18, weight="bold")).pack(anchor="w", pady=(0, 5))
         for d in info['detalles_unidades']:
             ctk.CTkLabel(self.frame_hardware, text=f"→ {d['unidad']} | Capacidad: {d['total_gb']} GB | Libre: {d['libre_gb']} GB", justify="left").pack(anchor="w", padx=20) 
-        
-        
-        
-        # label_titulo = ctk.CTkLabel(self.main_view, text="Caracteristicas del Equipo", font=ctk.CTkFont(size=26, weight="bold"))
-        # label_titulo.pack(pady=(30, 20))
-        
-        # frame_info = ctk.CTkFrame(self.main_view, fg_color="transparent")
-        # frame_info.pack(fill="both", expand=True, padx=50, pady=10)
-        
-        # texto_base = (
-        #     f"● Procesaor: {datos['procesador']}\n\n"
-        #     f"● Memoria RAM Total: {datos['ram_total_gb']} GB\n"
-        #     f"● Memoria RAM Disponible: {datos['ram_disponible_gb']} GB\n\n"
-        #     f"● Almacenamiento Total: {datos['detalles_unidades']} GB\n"
-        # )
-        # label_base = ctk.CTkLabel(frame_info, text=texto_base, justify="left", wraplength=700, font=ctk.CTkFont(size=15))
-        # label_base.pack(anchor="w", pady=10)
-
-        # label_discos_titulo = ctk.CTkLabel(frame_info, text="Detalles de Unidades:", font=ctk.CTkFont(size=16, weight="bold"))
-        # label_discos_titulo.pack(anchor="w", pady=(10, 5))
-        
-        # for d in datos['detalles_unidades']:
-        #     texto_disco = f"   → Unidad {d['unidad']} | Capacidad: {d['total_gb']} GB | Disponible: {d['libre_gb']} GB"
-        #     lbl_disco = ctk.CTkLabel(frame_info, text=texto_disco, font=ctk.CTkFont(size=14))
-        #     lbl_disco.pack(anchor="w", padx=20)
-        
-        # if datos['unidades_usb']: # muestra si hay USBs conectados
-        #     label_usb = ctk.CTkLabel(frame_info, text=f"\nUSBs detectadas: {', '.join(datos['unidades_usb'])}", font=ctk.CTkFont(size=14, slant="italic"), text_color="green")
-        #     label_usb.pack(anchor="w", pady=10)
+            
         
     def actualizar_ram(self):
         ram = obtener_ram_disponible()
@@ -95,14 +84,11 @@ class App(ctk.CTk):
         
         
         
-        
-    # -------------- ADM DE PROCESOS---------------------------
-            
-    def mostrar_archivos(self):
-        self.limpiar_pantalla()
-        label = ctk.CTkLabel(self.main_view, text="Administrador de Archivos (USB)", font=ctk.CTkFont(size=24, weight="bold"))
-        label.pack(pady=20)
-        # aqui va la logica para detectar la unidad F: y listar archivos
+    #-----------------------------------------------------------
+    #---------------                 ---------------------------    
+    # -------------- ADM DE PROCESOS ---------------------------
+    #---------------                 ---------------------------    
+    #-----------------------------------------------------------          
     
     def mostrar_procesos(self):
         self.limpiar_pantalla()
@@ -201,14 +187,6 @@ class App(ctk.CTk):
         self.lista_procesos_memoria = []
         self.limpiar_pantalla()
         self.mostrar_procesos()
-        #if hasattr(self, 'frame_resultados'):
-        #   self.frame_resultados.destroy()
-        #self.label_status.configure(text="No hay procesos en lista")
-                
-        #self.entry_id.delete(0, 'end') # clean
-        #self.entry_llegada.delete(0, 'end')
-        #self.entry_rafaga.delete(0, 'end')
-        #messagebox.showinfo("Limpiar", "Datos borrados") 
     
     def mostrar_resultados_visuales(self, tabla, gantt):
         # contenedor para resultados
@@ -292,3 +270,180 @@ class App(ctk.CTk):
     
     
     
+    
+    
+    #-----------------------------------------------------------
+    #---------------                 ---------------------------    
+    # -------------- ADM DE ARCHIVOS ---------------------------
+    #---------------                 ---------------------------    
+    #-----------------------------------------------------------   
+    
+    
+    def mostrar_archivos(self):
+        self.limpiar_pantalla()
+        
+        self.vista_archivos = ApartadoArchivos(self.main_view)
+        self.vista_archivos.pack(fill="both", expand=True, padx=20, pady=20)
+
+    def actualizar_lista_archivos(self):
+        self.lista_visual.delete(0, tk.END)
+        if self.unidad_actual:
+            archivos = listar_archivos(self.unidad_actual)
+            for arc in archivos:
+                self.lista_visual.insert(tk.END, f"  📁 {arc}" if os.path.isdir(os.path.join(self.unidad_actual, arc)) else f"  📄 {arc}")
+    
+    
+    
+
+    #------------------------------------------------------------
+    #---------------                  ---------------------------    
+    # --------------  ADM DE MEMORIA  ---------------------------
+    #---------------                  ---------------------------    
+    #------------------------------------------------------------   
+    
+    
+    def mostrar_memoria(self):
+        self.limpiar_pantalla()
+        if not hasattr(self, 'mem_admin'):
+            from core.memoria import AdminMemoria
+            self.mem_admin = AdminMemoria()
+
+        ctk.CTkLabel(self.main_view, text="MONITOR DE SISTEMA (GB)", font=("Consolas", 24, "bold")).pack(pady=10)
+
+        # Frame principal con dos columnas
+        self.frame_mon = ctk.CTkFrame(self.main_view, fg_color="transparent")
+        self.frame_mon.pack(fill="both", expand=True, padx=20)
+
+        # Columna izquierda: Estadísticas y lista de procesos
+        frame_izq = ctk.CTkFrame(self.frame_mon, fg_color="transparent")
+        frame_izq.pack(side="left", fill="both", expand=True, padx=10)
+
+        self.lbl_stats = ctk.CTkLabel(frame_izq, text="", justify="left", font=("Consolas", 16))
+        self.lbl_stats.pack(anchor="nw", pady=10)
+
+        # Frame scrollable para la lista de procesos con botones
+        ctk.CTkLabel(frame_izq, text="Procesos Activos:", font=("Consolas", 14, "bold")).pack(anchor="w", pady=(20, 5))
+        self.frame_procesos_list = ctk.CTkScrollableFrame(frame_izq, height=300, fg_color="#2b2b2b")
+        self.frame_procesos_list.pack(fill="both", expand=True, pady=5)
+
+        # Columna derecha: Canvas de memoria
+        self.canvas_m = ctk.CTkCanvas(self.frame_mon, bg="#1a1a1a", highlightthickness=0, width=350, height=520)
+        self.canvas_m.pack(side="right", pady=10, padx=10)
+        
+        # Llamamos al loop de actualización
+        self.actualizar_monitor_loop()
+
+    def actualizar_monitor_loop(self):
+        if not hasattr(self, 'canvas_m') or not self.canvas_m.winfo_exists():
+            if hasattr(self, 'monitor_update_id'):
+                self.monitor_update_id = None
+            return
+
+        self.mem_admin.actualizar_estado_real()
+        m = self.mem_admin.obtener_metricas()
+        
+        # Contar procesos activos (excluyendo MONITOR y LIBRE)
+        procesos_activos = sum(1 for b in m['MAPA'] if b['estado'] == 'ocupado')
+        
+        self.lbl_stats.configure(text=f"RAM TOTAL: {m['TOTAL_GB']} GB\n\n"
+                                        f"PROCESOS: {procesos_activos}\n\n"
+                                        f"MAX AVAIL: {m['MAX_AVAIL']} GB\n"
+                                        f"MEM AVAIL: {m['MEM_AVAIL']} GB")
+
+        # Actualizar lista de procesos con botones
+        for widget in self.frame_procesos_list.winfo_children():
+            widget.destroy()
+        
+        for bloque in m['MAPA']:
+            if bloque['estado'] == 'ocupado':
+                frame_proc = ctk.CTkFrame(self.frame_procesos_list, fg_color="#3a3a3a")
+                frame_proc.pack(fill="x", pady=2, padx=5)
+                
+                # Nombre y memoria
+                lbl_info = ctk.CTkLabel(frame_proc, 
+                                    text=f"{bloque.get('nombre_corto', bloque['id'])}: {bloque['tamano']} GB",
+                                    font=("Consolas", 12),
+                                    anchor="w")
+                lbl_info.pack(side="left", fill="x", expand=True, padx=10, pady=5)
+                
+                # Botón para terminar proceso
+                es_protegido = bloque.get('protegido', False)
+                btn_kill = ctk.CTkButton(frame_proc, 
+                                        text="✕",
+                                        width=30,
+                                        height=25,
+                                        fg_color="#e74c3c" if not es_protegido else "#95a5a6",
+                                        hover_color="#c0392b" if not es_protegido else "#7f8c8d",
+                                        command=lambda pids=bloque.get('pids', []), protegido=es_protegido, nombre=bloque.get('nombre_corto', ''): self.terminar_proceso(pids, protegido, nombre))
+                btn_kill.pack(side="right", padx=5)
+
+        self.canvas_m.delete("all")
+        y_p = 0 # Empezamos desde el borde superior absoluto
+        c_h = 520 
+        ancho = 220
+        
+        for b in m['MAPA']:
+            # Proporción exacta
+            alto_px = (b['tamano'] / m['TOTAL_GB']) * c_h
+            
+            # Colores según tu diagrama
+            if b['estado'] == 'sistema': col = "#E67E22" # Naranja (Monitor)
+            elif b['estado'] == 'ocupado': col = "#3498DB" # Azul (Procesos P)
+            else: col = "#27AE60" # Verde (Libre)
+
+            # Dibujo del bloque
+            self.canvas_m.create_rectangle(50, y_p, 50 + ancho, y_p + alto_px, 
+                                        fill=col, outline="white", width=1)
+            
+            # Texto centrado - ajustar tamaño de fuente si hay muchos bloques
+            if alto_px > 8:
+                # Mostrar nombre real del proceso o ID si es sistema/libre
+                texto_display = b.get('nombre_corto', b['id'])
+                # Tamaño de fuente dinámico según altura del bloque
+                font_size = max(7, min(9, int(alto_px / 4)))
+                self.canvas_m.create_text(50 + ancho/2, y_p + alto_px/2, 
+                                        text=texto_display, fill="white", font=("Arial", font_size, "bold"))
+                self.canvas_m.create_text(50 + ancho + 40, y_p + alto_px/2, 
+                                        text=f"{b['tamano']}G", fill="white", font=("Arial", 8))
+            
+            y_p += alto_px # El siguiente bloque se pega al final de este
+
+        self.monitor_update_id = self.after(1000, self.actualizar_monitor_loop)
+    
+    def terminar_proceso(self, pids, protegido=False, nombre=''):
+        """Termina todos los PIDs de un proceso agrupado"""
+        import psutil
+        from tkinter import messagebox
+        
+        if not pids:
+            return
+        
+        # Si es un proceso protegido (Explorer), mostrar advertencia especial
+        if protegido:
+            respuesta = messagebox.askyesno(
+                "Proceso Protegido", 
+                f"'{nombre}' es el Explorador de Windows.\n\n"
+                "Cerrar este proceso cerrará todas las ventanas de carpetas pero el shell se reiniciará automáticamente.\n\n"
+                "¿Desea continuar?")
+            if not respuesta:
+                return
+        
+        terminados = 0
+        errores = 0
+        
+        for pid in pids:
+            try:
+                proc = psutil.Process(pid)
+                proc.terminate()  # Intenta cerrar normalmente
+                terminados += 1
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                errores += 1
+                continue
+        
+        if terminados > 0:
+            messagebox.showinfo("Proceso Terminado", 
+                                f"Se terminaron {terminados} proceso(s) correctamente.")
+        if errores > 0:
+            messagebox.showwarning("Advertencia", f"No se pudieron terminar {errores} proceso(s). Puede que requieran permisos de administrador.")
+    
+
